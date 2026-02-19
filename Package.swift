@@ -17,11 +17,14 @@ let package = Package(
             name: "SQLitizer",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift")
+            ],
+            resources: [
+                .process("Assets.xcassets")
             ]
         ),
         .testTarget(
             name: "SQLitizerTests",
             dependencies: ["SQLitizer"]
-        )
+        ),
     ]
 )

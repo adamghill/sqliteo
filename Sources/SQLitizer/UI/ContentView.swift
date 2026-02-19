@@ -7,16 +7,26 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(dbManager.tableNames, id: \.self, selection: Bindable(dbManager).selectedTableName)
-            { tableName in
-                Text(tableName)
-                    .tag(tableName)
+            VStack(spacing: 0) {
+                if let url = dbManager.currentFileURL, let size = dbManager.currentFileSize {
+                    FileMetadataView(url: url, size: size)
+                }
+
+                List(
+                    dbManager.tableNames, id: \.self,
+                    selection: Bindable(dbManager).selectedTableName
+                ) { tableName in
+                    Text(tableName)
+                        .tag(tableName)
+                }
+                .navigationTitle("Tables")
+                .listStyle(.sidebar)
             }
-            .navigationTitle("Tables")
-            .listStyle(.sidebar)
             .onChange(of: dbManager.selectedTableName) { _, newValue in
                 if let tableName = newValue {
-                    dbManager.selectTable(tableName)
+                    Task {
+                        await dbManager.selectTable(tableName)
+                    }
                 }
             }
         } detail: {
@@ -30,7 +40,9 @@ struct ContentView: View {
 
                     HStack {
                         Button {
-                            dbManager.executeCustomSQL(customSQL)
+                            Task {
+                                await dbManager.executeCustomSQL(customSQL)
+                            }
                         } label: {
                             Label("Run Query", systemImage: "play.fill")
                         }
@@ -69,7 +81,9 @@ struct ContentView: View {
                         }
                         ToolbarItem(placement: .confirmationAction) {
                             Button {
-                                dbManager.saveChanges()
+                                Task {
+                                    await dbManager.saveChanges()
+                                }
                             } label: {
                                 Label("Save", systemImage: "checkmark.circle.fill")
                             }
@@ -98,11 +112,28 @@ struct ContentView: View {
                         dbManager.openFile()
                     }
                     .buttonStyle(.borderedProminent)
+
+                    if let error = dbManager.errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(minWidth: 800, minHeight: 600)
+        .overlay {
+            if dbManager.isLoading {
+                ZStack {
+                    Color.black.opacity(0.1)
+                    ProgressView("Loading...")
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(8)
+                }
+            }
+        }
     }
 }
 
@@ -121,12 +152,16 @@ struct DataTableView: View {
                         .textFieldStyle(.roundedBorder)
                         .onSubmit {
                             dbManager.filterText = localFilterText
-                            dbManager.applyFilter()
+                            Task {
+                                await dbManager.applyFilter()
+                            }
                         }
 
                     Button {
                         dbManager.filterText = localFilterText
-                        dbManager.applyFilter()
+                        Task {
+                            await dbManager.applyFilter()
+                        }
                     } label: {
                         Label("Apply", systemImage: "line.3.horizontal.decrease.circle.fill")
                     }
@@ -134,7 +169,9 @@ struct DataTableView: View {
 
                     Button {
                         localFilterText = ""
-                        dbManager.clearFilter()
+                        Task {
+                            await dbManager.clearFilter()
+                        }
                     } label: {
                         Label("Clear", systemImage: "xmark.circle")
                     }
@@ -159,32 +196,13 @@ struct DataTableView: View {
             } else {
                 GeometryReader { geometry in
                     ScrollView([.horizontal, .vertical]) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            // Header
-                            HStack(spacing: 0) {
-                                ForEach(dbManager.columns, id: \.self) { column in
-                                    Text(column)
-                                        .font(.headline)
-                                        .frame(width: 150, alignment: .leading)
-                                        .padding(8)
-                                        .background(Color(NSColor.windowBackgroundColor))
-                                        .border(Color.secondary.opacity(0.2))
+                        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders])
+                        {
+                            Section(header: HeaderView(columns: dbManager.columns)) {
+                                ForEach(dbManager.rows) { row in
+                                    RowView(row: row, columns: dbManager.columns)
                                 }
                             }
-
-                            // Rows
-                            ForEach(dbManager.rows) { row in
-                                HStack(spacing: 0) {
-                                    ForEach(dbManager.columns, id: \.self) { column in
-                                        CellView(
-                                            rowID: row.id, column: column,
-                                            initialValue: row.data[column] ?? "")
-                                    }
-                                }
-                            }
-
-                            // Fill remaining space to ensure 100% height
-                            Spacer(minLength: 0)
                         }
                         .frame(
                             minWidth: max(
@@ -194,10 +212,43 @@ struct DataTableView: View {
                         )
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct HeaderView: View {
+    let columns: [String]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                Text(column)
+                    .font(.headline)
+                    .padding(8)
+                    .frame(width: 150, alignment: .leading)
+                    .background(Color(NSColor.windowBackgroundColor))
+                    .border(Color.secondary.opacity(0.2))
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct RowView: View {
+    let row: DBRow
+    let columns: [String]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                CellView(
+                    rowID: row.id, column: column,
+                    initialValue: row.data[column] ?? "")
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 
@@ -219,9 +270,10 @@ struct CellView: View {
     var body: some View {
         TextField("", text: $text)
             .textFieldStyle(.plain)
-            .frame(width: 150, alignment: .leading)
             .padding(8)
-            .border(isEdited ? Color.blue.opacity(0.5) : Color.secondary.opacity(0.1))
+            .frame(width: 150, alignment: .leading)
+            .background(isEdited ? Color.blue.opacity(0.1) : Color.clear)
+            .border(Color.secondary.opacity(0.1))
             .onChange(of: text) { _, newValue in
                 if newValue != initialValue {
                     dbManager.updateCell(rowID: rowID, column: column, value: newValue)
@@ -230,9 +282,6 @@ struct CellView: View {
             .onChange(of: dbManager.pendingChanges) { _, _ in
                 // If changes were discarded or saved (pendingChanges cleared), reset text to current db value if it's not in pending
                 if dbManager.pendingChanges[rowID]?[column] == nil {
-                    // If we just saved, the initialValue in this View instance is OLD.
-                    // However, SwiftUI views for rows will be re-created after saveChanges() calls fetchRows()
-                    // because dbManager.rows identites will change (new UUIDs in DBRow).
                     text = initialValue
                 }
             }
@@ -240,5 +289,35 @@ struct CellView: View {
 
     var isEdited: Bool {
         dbManager.pendingChanges[rowID]?[column] != nil
+    }
+}
+
+struct FileMetadataView: View {
+    let url: URL
+    let size: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "cylinder.split.1x2.fill")
+                    .foregroundColor(.accentColor)
+                Text(url.lastPathComponent)
+                    .font(.headline)
+            }
+
+            Text(url.path)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(url.path)
+
+            Text(size)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(NSColor.controlBackgroundColor))
     }
 }
