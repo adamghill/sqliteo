@@ -1,0 +1,108 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+[2/5] Emitting module SQLitizer
+[3/4] Emitting module SQLitizerTests
+Build complete! (1.83s)
+Test Suite 'All tests' started at 2026-02-19 20:56:35.123.
+Test Suite 'SQLitizerPackageTests.xctest' started at 2026-02-19 20:56:35.123.
+Test Suite 'DatabaseManagerTests' started at 2026-02-19 20:56:35.123.
+Test Case '-[SQLitizerTests.DatabaseManagerTests testAdvancedFiltering]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testAdvancedFiltering] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testAdvancedFiltering] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testAdvancedFiltering]' failed (0.042 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testColumnsForTablesAutocomplete]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testColumnsForTablesAutocomplete] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testColumnsForTablesAutocomplete] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testColumnsForTablesAutocomplete]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testConnectionAndInitialization]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testConnectionAndInitialization] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testConnectionAndInitialization] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testConnectionAndInitialization]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testCustomSQLConsole]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testCustomSQLConsole] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testCustomSQLConsole] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testCustomSQLConsole]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testEditingAndSavingStandardTable]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testEditingAndSavingStandardTable] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testEditingAndSavingStandardTable] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testEditingAndSavingStandardTable]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testEditingAndSavingWithoutRowIDTable]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testEditingAndSavingWithoutRowIDTable] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testEditingAndSavingWithoutRowIDTable] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testEditingAndSavingWithoutRowIDTable]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testPagination]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testPagination] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testPagination] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testPagination]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testSelectingStandardTable]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testSelectingStandardTable] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testSelectingStandardTable] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testSelectingStandardTable]' failed (0.002 seconds).
+Test Case '-[SQLitizerTests.DatabaseManagerTests testSelectingWithoutRowidTable]' started.
+/Users/adam/Source/adamghill/sqlitizer/.build/checkouts/GRDB.swift/GRDB/Core/SerializedDatabase.swift:125: error: -[SQLitizerTests.DatabaseManagerTests testSelectingWithoutRowidTable] : failed: caught error: "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+<unknown>:0: -[SQLitizerTests.DatabaseManagerTests testSelectingWithoutRowidTable] : Test skipped: threw error "SQLite error 1: near "WITHOUT": syntax error - while executing `CREATE TABLE tags (name TEXT PRIMARY KEY WITHOUT ROWID);
+    INSERT INTO tags (name) VALUES ('swift');
+    INSERT INTO tags (name) VALUES ('programming')`"
+Test Case '-[SQLitizerTests.DatabaseManagerTests testSelectingWithoutRowidTable]' failed (0.003 seconds).
+Test Suite 'DatabaseManagerTests' failed at 2026-02-19 20:56:35.182.
+	 Executed 9 tests, with 9 tests skipped and 9 failures (9 unexpected) in 0.057 (0.058) seconds
+Test Suite 'FuzzyMatchTests' started at 2026-02-19 20:56:35.182.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testCaseInsensitivity]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testCaseInsensitivity]' passed (0.001 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testExactMatch]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testExactMatch]' passed (0.000 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzyPrefixMatch]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzyPrefixMatch]' passed (0.000 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzyRejection]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzyRejection]' passed (0.000 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzySubstringMatch_Typos]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testFuzzySubstringMatch_Typos]' passed (0.000 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testPrefixMatch]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testPrefixMatch]' passed (0.000 seconds).
+Test Case '-[SQLitizerTests.FuzzyMatchTests testSubstringMatch]' started.
+Test Case '-[SQLitizerTests.FuzzyMatchTests testSubstringMatch]' passed (0.000 seconds).
+Test Suite 'FuzzyMatchTests' passed at 2026-02-19 20:56:35.184.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'SQLitizerPackageTests.xctest' failed at 2026-02-19 20:56:35.184.
+	 Executed 16 tests, with 9 tests skipped and 9 failures (9 unexpected) in 0.059 (0.061) seconds
+Test Suite 'All tests' failed at 2026-02-19 20:56:35.184.
+	 Executed 16 tests, with 9 tests skipped and 9 failures (9 unexpected) in 0.059 (0.062) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

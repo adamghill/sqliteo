@@ -3,8 +3,14 @@ import Foundation
 import GRDB
 import UniformTypeIdentifiers
 
+enum TableRowID: Hashable {
+    case rowid(Int64)
+    case pk([String: String])
+    case uuid(UUID)
+}
+
 struct DBRow: Identifiable {
-    let id = UUID()
+    let id: TableRowID
     let data: [String: String]
 }
 
@@ -18,38 +24,73 @@ class DatabaseManager {
     var primaryKeyColumns: [String] = []
     var rows: [DBRow] = []
 
-    // Tracks local edits: [RowID: [ColumnName: NewValue]]
-    var pendingChanges: [UUID: [String: String]] = [:]
+    // File Metadata
+    var fileURL: URL?
+    var fileSize: Int64 = 0
+    var creationDate: Date?
+    var modificationDate: Date?
 
-    var filterText: String = ""
+    // Loading state
+    var isLoading: Bool = false
+    var errorMessage: String? = nil
+
+    // Pagination
+    var limit: Int = 1000
+    var offset: Int = 0
+    var totalRows: Int = 0
+
+    // Advanced Filtering
+    struct FilterCriteria: Identifiable, Equatable {
+        let id = UUID()
+        var column: String
+        var operatorType: FilterOperator
+        var value: String
+    }
+
+    enum FilterOperator: String, CaseIterable, Identifiable {
+        case equals = "="
+        case notEquals = "!="
+        case contains = "CONTAINS"
+        case startsWith = "STARTS WITH"
+        case endsWith = "ENDS WITH"
+        case greaterThan = ">"
+        case lessThan = "<"
+
+        var id: String { rawValue }
+
+        var sqlOperator: String {
+            switch self {
+            case .contains, .startsWith, .endsWith: return "LIKE"
+            default: return rawValue
+            }
+        }
+    }
+
+    var filters: [FilterCriteria] = []
+
+    // Tracks local edits: [RowID: [ColumnName: NewValue]]
+    var pendingChanges: [TableRowID: [String: String]] = [:]
 
     var hasChanges: Bool {
         !pendingChanges.isEmpty
     }
 
-    // Track loading state
-    var isLoading: Bool = false
-    var errorMessage: String? = nil
-
-    // File Metadata
-    var currentFileURL: URL?
-    var currentFileSize: String?
-
+    // Cell Editing
     struct CellID: Hashable {
-        let rowID: UUID
+        let rowID: TableRowID
         let column: String
     }
 
     var activeEdits: [CellID: String] = [:]
 
-    func startEditing(rowID: UUID, column: String, currentValue: String) {
+    func startEditing(rowID: TableRowID, column: String, currentValue: String) {
         let cellID = CellID(rowID: rowID, column: column)
         if activeEdits[cellID] == nil {
             activeEdits[cellID] = currentValue
         }
     }
 
-    func updateActiveEdit(rowID: UUID, column: String, value: String) {
+    func updateActiveEdit(rowID: TableRowID, column: String, value: String) {
         let cellID = CellID(rowID: rowID, column: column)
         if activeEdits[cellID] != nil {
             activeEdits[cellID] = value
@@ -68,16 +109,16 @@ class DatabaseManager {
     }
 
     func connect(to url: URL) async {
+        self.isLoading = true
+        defer { self.isLoading = false }
+        self.errorMessage = nil
+
         do {
-            self.currentFileURL = url
-            if let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
-                let size = attr[.size] as? Int64
-            {
-                self.currentFileSize = ByteCountFormatter.string(
-                    fromByteCount: size, countStyle: .file)
-            } else {
-                self.currentFileSize = "Unknown"
-            }
+            self.fileURL = url
+            let attr = try FileManager.default.attributesOfItem(atPath: url.path)
+            self.fileSize = attr[.size] as? Int64 ?? 0
+            self.creationDate = attr[.creationDate] as? Date
+            self.modificationDate = attr[.modificationDate] as? Date
 
             // DatabaseQueue instantiation is fast, but we can do it off-actor if strictly needed.
             let path = url.path
@@ -115,47 +156,145 @@ class DatabaseManager {
     func selectTable(_ tableName: String) async {
         self.selectedTableName = tableName
         self.pendingChanges = [:]
-        self.filterText = ""
+        self.filters = []
+        self.offset = 0
         self.isLoading = true
         self.errorMessage = nil
 
         defer { self.isLoading = false }
 
         do {
-            guard let dbQueue = dbQueue else { return }
-
-            // Perform all reads in one background task
-            let (pks, cols, fetchedRows) = try await dbQueue.read {
-                db -> ([String], [String], [DBRow]) in
-                // 1. Primary Keys
-                let columnsInfo = try db.columns(in: tableName)
-                let pks = columnsInfo.filter { $0.primaryKeyIndex > 0 }.map { $0.name }
-
-                // 2. Columns
-                let cols = columnsInfo.map { $0.name }
-
-                // 3. Rows (Limit 1000 for performance)
-                let sql = "SELECT * FROM \(tableName) LIMIT 1000"
-                let rows = try Row.fetchAll(db, sql: sql)
-                let dbRows = rows.map { row in
-                    var dict: [String: String] = [:]
-                    for column in cols {
-                        if let val = row[column] {
-                            dict[column] = "\(val)"
-                        }
-                    }
-                    return DBRow(data: dict)
-                }
-
-                return (pks, cols, dbRows)
-            }
-
-            self.primaryKeyColumns = pks
-            self.columns = cols
-            self.rows = fetchedRows
-
+            try await fetchPrimaryKeys(for: tableName)
+            try await fetchColumns(for: tableName)
+            try await fetchRows(for: tableName)
         } catch {
             self.errorMessage = "Error loading table data: \(error.localizedDescription)"
+        }
+    }
+
+    private func fetchPrimaryKeys(for tableName: String) async throws {
+        guard let dbQueue = dbQueue else { return }
+
+        try await dbQueue.read { db in
+            let columnsInfo = try db.columns(in: tableName)
+            self.primaryKeyColumns = columnsInfo.filter { $0.primaryKeyIndex > 0 }.map { $0.name }
+        }
+    }
+
+    private func fetchColumns(for tableName: String) async throws {
+        guard let dbQueue = dbQueue else { return }
+
+        try await dbQueue.read { db in
+            let columnsInfo = try db.columns(in: tableName)
+            self.columns = columnsInfo.map { $0.name }
+        }
+    }
+
+    func fetchRows(for tableName: String) async throws {
+        guard let dbQueue = dbQueue else { return }
+
+        try await dbQueue.read { db in
+            // 1. Get Total Count
+            var countSql = "SELECT COUNT(*) FROM \(tableName)"
+            var arguments: StatementArguments = []
+
+            // Build WHERE clause
+            var whereClauses: [String] = []
+            var whereArgs: [DatabaseValueConvertible] = []
+
+            for filter in self.filters {
+                let sqlOp = filter.operatorType.sqlOperator
+                whereClauses.append("\(filter.column) \(sqlOp) ?")
+
+                var value: String = filter.value
+                switch filter.operatorType {
+                case .contains: value = "%\(value)%"
+                case .startsWith: value = "\(value)%"
+                case .endsWith: value = "%\(value)"
+                default: break
+                }
+                whereArgs.append(value)
+            }
+
+            if !whereClauses.isEmpty {
+                let whereString = whereClauses.joined(separator: " AND ")
+                countSql += " WHERE \(whereString)"
+                arguments = StatementArguments(whereArgs)
+            }
+
+            self.totalRows = try Int.fetchOne(db, sql: countSql, arguments: arguments) ?? 0
+
+            // 2. Fetch Data
+            var selectColumns = "*"
+            var hasRowId = false
+            do {
+                _ = try db.makeStatement(sql: "SELECT rowid FROM \(tableName) LIMIT 1")
+                selectColumns = "rowid, *"
+                hasRowId = true
+            } catch {
+                hasRowId = false
+            }
+
+            var sql = "SELECT \(selectColumns) FROM \(tableName)"
+
+            if !whereClauses.isEmpty {
+                let whereString = whereClauses.joined(separator: " AND ")
+                sql += " WHERE \(whereString)"
+            }
+
+            sql += " LIMIT \(self.limit) OFFSET \(self.offset)"
+
+            let rows = try Row.fetchAll(db, sql: sql, arguments: arguments)
+            self.rows = rows.map { row in
+                var dict: [String: String] = [:]
+                for column in self.columns {
+                    if let val = row[column] {
+                        dict[column] = "\(val)"
+                    }
+                }
+
+                let id: TableRowID
+                if hasRowId, let rowid = row["rowid"] as? Int64 {
+                    id = .rowid(rowid)
+                } else if !self.primaryKeyColumns.isEmpty {
+                    var pkDict: [String: String] = [:]
+                    var missingPK = false
+                    for pkCol in self.primaryKeyColumns {
+                        if let val = row[pkCol] {
+                            pkDict[pkCol] = "\(val)"
+                        } else {
+                            missingPK = true
+                        }
+                    }
+                    if !missingPK && !pkDict.isEmpty {
+                        id = .pk(pkDict)
+                    } else {
+                        id = .uuid(UUID())
+                    }
+                } else {
+                    id = .uuid(UUID())
+                }
+
+                return DBRow(id: id, data: dict)
+            }
+        }
+    }
+
+    func nextPage() {
+        Task {
+            if offset + limit < totalRows {
+                offset += limit
+                await applyFilter()
+            }
+        }
+    }
+
+    func previousPage() {
+        Task {
+            if offset - limit >= 0 {
+                offset -= limit
+                await applyFilter()
+            }
         }
     }
 
@@ -188,7 +327,7 @@ class DatabaseManager {
                             dict[column] = "\(val)"
                         }
                     }
-                    return DBRow(data: dict)
+                    return DBRow(id: .uuid(UUID()), data: dict)
                 }
                 return (cols, dbRows)
             }
@@ -196,56 +335,30 @@ class DatabaseManager {
             self.columns = newColumns
             self.rows = newRows
             self.primaryKeyColumns = []
+            self.totalRows = self.rows.count
         } catch {
             self.errorMessage = "Error executing SQL: \(error.localizedDescription)"
         }
     }
 
     func applyFilter() async {
-        guard let tableName = selectedTableName, let dbQueue = dbQueue else { return }
-
+        guard let tableName = selectedTableName else { return }
         self.isLoading = true
         defer { self.isLoading = false }
-
         do {
-            let currentFilter = self.filterText
-            let currentCols = self.columns
-
-            let filteredRows = try await dbQueue.read { db -> [DBRow] in
-                var sql = "SELECT * FROM \(tableName)"
-                var arguments: StatementArguments = []
-
-                if !currentFilter.isEmpty {
-                    let conditions = currentCols.map { "\($0) LIKE ?" }.joined(separator: " OR ")
-                    sql += " WHERE \(conditions)"
-                    arguments = StatementArguments(
-                        Array(repeating: "%\(currentFilter)%", count: currentCols.count))
-                }
-
-                sql += " LIMIT 1000"
-                let rows = try Row.fetchAll(db, sql: sql, arguments: arguments)
-                return rows.map { row in
-                    var dict: [String: String] = [:]
-                    for column in currentCols {
-                        if let val = row[column] {
-                            dict[column] = "\(val)"
-                        }
-                    }
-                    return DBRow(data: dict)
-                }
-            }
-            self.rows = filteredRows
+            try await fetchRows(for: tableName)
         } catch {
-            self.errorMessage = "Error filtering: \(error.localizedDescription)"
+            self.errorMessage = "Error applying filter: \(error.localizedDescription)"
         }
     }
 
     func clearFilter() async {
-        self.filterText = ""
+        filters = []
+        offset = 0
         await applyFilter()
     }
 
-    func updateCell(rowID: UUID, column: String, value: String) {
+    func updateCell(rowID: TableRowID, column: String, value: String) {
         if pendingChanges[rowID] == nil {
             pendingChanges[rowID] = [:]
         }
@@ -261,8 +374,6 @@ class DatabaseManager {
 
         let changesToSave = self.pendingChanges
         let rowsSnapshot = self.rows
-        let pks = self.primaryKeyColumns
-        let allCols = self.columns
 
         self.isLoading = true
         defer { self.isLoading = false }
@@ -273,13 +384,30 @@ class DatabaseManager {
                     guard let row = rowsSnapshot.first(where: { $0.id == rowID }) else { continue }
 
                     let setClause = changes.map { "\($0.key) = ?" }.joined(separator: ", ")
-                    let whereColumns = pks.isEmpty ? allCols : pks
-                    let whereClause = whereColumns.map { "\($0) = ?" }.joined(separator: " AND ")
+
+                    var whereClause = ""
+                    var whereArgs: [DatabaseValueConvertible?] = []
+
+                    switch rowID {
+                    case .rowid(let id):
+                        whereClause = "rowid = ?"
+                        whereArgs = [id]
+                    case .pk(let pkDict):
+                        whereClause = pkDict.keys.map { "\($0) = ?" }.joined(separator: " AND ")
+                        whereArgs = Array(pkDict.values)
+                    case .uuid:
+                        let whereColumns =
+                            self.primaryKeyColumns.isEmpty ? self.columns : self.primaryKeyColumns
+                        whereClause = whereColumns.map { "\($0) = ?" }.joined(separator: " AND ")
+                        whereArgs = whereColumns.map { row.data[$0] }
+                    }
+
+                    if whereClause.isEmpty { continue }
 
                     let sql = "UPDATE \(tableName) SET \(setClause) WHERE \(whereClause)"
 
                     var arguments: [DatabaseValueConvertible?] = Array(changes.values)
-                    arguments.append(contentsOf: whereColumns.map { row.data[$0] })
+                    arguments.append(contentsOf: whereArgs)
 
                     try db.execute(sql: sql, arguments: StatementArguments(arguments))
                 }

@@ -8,10 +8,6 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                if let url = dbManager.currentFileURL, let size = dbManager.currentFileSize {
-                    FileMetadataView(url: url, size: size)
-                }
-
                 List(
                     dbManager.tableNames, id: \.self,
                     selection: Bindable(dbManager).selectedTableName
@@ -21,11 +17,30 @@ struct ContentView: View {
                 }
                 .navigationTitle("Tables")
                 .listStyle(.sidebar)
+
+                if let fileURL = dbManager.fileURL {
+                    Divider()
+                    FileMetadataView(
+                        fileName: fileURL.lastPathComponent,
+                        filePath: fileURL.path,
+                        fileSize: dbManager.fileSize,
+                        dateModified: dbManager.modificationDate ?? Date()
+                    )
+                    .padding()
+                }
             }
             .onChange(of: dbManager.selectedTableName) { _, newValue in
                 if let tableName = newValue {
                     Task {
                         await dbManager.selectTable(tableName)
+                    }
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 200, ideal: 250)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: dbManager.openFile) {
+                        Label("Open Database", systemImage: "folder")
                     }
                 }
             }
@@ -139,48 +154,13 @@ struct ContentView: View {
 
 struct DataTableView: View {
     @Environment(DatabaseManager.self) private var dbManager
-    @State private var localFilterText: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
             if dbManager.selectedTableName != nil {
-                HStack(spacing: 8) {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .foregroundColor(.secondary)
-
-                    TextField("Filter rows...", text: $localFilterText)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit {
-                            dbManager.filterText = localFilterText
-                            Task {
-                                await dbManager.applyFilter()
-                            }
-                        }
-
-                    Button {
-                        dbManager.filterText = localFilterText
-                        Task {
-                            await dbManager.applyFilter()
-                        }
-                    } label: {
-                        Label("Apply", systemImage: "line.3.horizontal.decrease.circle.fill")
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        localFilterText = ""
-                        Task {
-                            await dbManager.clearFilter()
-                        }
-                    } label: {
-                        Label("Clear", systemImage: "xmark.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.secondary)
-                    .disabled(localFilterText.isEmpty && dbManager.filterText.isEmpty)
-                }
-                .padding(8)
-                .background(Color(NSColor.windowBackgroundColor))
+                FilterView()
+                    .padding(.bottom, 8)
+                    .background(Color(NSColor.windowBackgroundColor))
 
                 Divider()
             }
@@ -215,6 +195,7 @@ struct DataTableView: View {
                                 alignment: .topLeading
                             )
                         }
+                        .padding(.horizontal)
 
                         if !dbManager.activeEdits.isEmpty {
                             EditControlBar()
@@ -223,6 +204,8 @@ struct DataTableView: View {
                     }
                 }
             }
+
+            StatusBar()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -296,7 +279,7 @@ struct RowView: View {
 
 struct CellView: View {
     @Environment(DatabaseManager.self) private var dbManager
-    let rowID: UUID
+    let rowID: TableRowID
     let column: String
     let initialValue: String
 
@@ -337,7 +320,7 @@ struct CellView: View {
         dbManager.activeEdits[CellID(rowID: rowID, column: column)] != nil
     }
 
-    private func CellID(rowID: UUID, column: String) -> DatabaseManager.CellID {
+    private func CellID(rowID: TableRowID, column: String) -> DatabaseManager.CellID {
         DatabaseManager.CellID(rowID: rowID, column: column)
     }
 
@@ -353,32 +336,148 @@ struct CellView: View {
     }
 }
 
+struct StatusBar: View {
+    @Environment(DatabaseManager.self) private var dbManager
+
+    var body: some View {
+        HStack {
+            Text("Total Rows: \(dbManager.totalRows)")
+
+            Spacer()
+
+            Button {
+                dbManager.previousPage()
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.plain)
+            .disabled(dbManager.offset == 0)
+
+            Text("Page \(currentPage) of \(totalPages)")
+                .monospacedDigit()
+
+            Button {
+                dbManager.nextPage()
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.plain)
+            .disabled(dbManager.offset + dbManager.limit >= dbManager.totalRows)
+        }
+        .padding(8)
+        .background(Color(NSColor.windowBackgroundColor))
+        .overlay(Divider(), alignment: .top)
+    }
+
+    var currentPage: Int {
+        if dbManager.limit == 0 { return 1 }
+        return (dbManager.offset / dbManager.limit) + 1
+    }
+
+    var totalPages: Int {
+        if dbManager.limit == 0 { return 1 }
+        return max(1, Int(ceil(Double(dbManager.totalRows) / Double(dbManager.limit))))
+    }
+}
+
 struct FileMetadataView: View {
-    let url: URL
-    let size: String
+    let fileName: String
+    let filePath: String
+    let fileSize: Int64
+    let dateModified: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "cylinder.split.1x2.fill")
-                    .foregroundColor(.accentColor)
-                Text(url.lastPathComponent)
-                    .font(.headline)
-            }
-
-            Text(url.path)
+            Text(fileName)
+                .font(.headline)
+            Text(filePath)
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(url.path)
-
-            Text(size)
+            Text("Size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("Modified: \(dateModified.formatted())")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+struct FilterView: View {
+    @Environment(DatabaseManager.self) private var dbManager
+
+    var body: some View {
+        @Bindable var dbManager = dbManager
+
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach($dbManager.filters) { $filter in
+                HStack {
+                    if !dbManager.columns.isEmpty {
+                        Picker("Column", selection: $filter.column) {
+                            ForEach(dbManager.columns, id: \.self) { column in
+                                Text(column).tag(column)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                    }
+
+                    Picker("Operator", selection: $filter.operatorType) {
+                        ForEach(DatabaseManager.FilterOperator.allCases) { op in
+                            Text(op.rawValue).tag(op)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 120)
+
+                    TextField("Value", text: $filter.value)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button {
+                        if let index = dbManager.filters.firstIndex(where: { $0.id == filter.id }) {
+                            dbManager.filters.remove(at: index)
+                        }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack {
+                Button {
+                    let firstColumn = dbManager.columns.first ?? ""
+                    let newFilter = DatabaseManager.FilterCriteria(
+                        column: firstColumn,
+                        operatorType: .contains,
+                        value: ""
+                    )
+                    dbManager.filters.append(newFilter)
+                } label: {
+                    Label("Add Filter", systemImage: "plus.circle")
+                }
+                .buttonStyle(.plain)
+                .disabled(dbManager.columns.isEmpty)
+
+                Spacer()
+
+                Button("Apply") {
+                    Task {
+                        await dbManager.applyFilter()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(dbManager.filters.isEmpty)
+
+                Button("Clear") {
+                    Task {
+                        await dbManager.clearFilter()
+                    }
+                }
+                .disabled(dbManager.filters.isEmpty)
+            }
+        }
+        .padding(8)
     }
 }
