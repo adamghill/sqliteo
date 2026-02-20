@@ -1,0 +1,85 @@
+name: Release App
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on tags matching v*, i.e., v1.0, v20.15.10
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build App
+        run: swift build -c release
+
+      - name: Package App Bundle
+        run: |
+          # Create a bundle structure for the built executable
+          mkdir -p SQLitizer.app/Contents/MacOS
+          mkdir -p SQLitizer.app/Contents/Resources
+          cp .build/release/SQLitizer SQLitizer.app/Contents/MacOS/SQLitizer
+          
+          # Generate an Info.plist dynamically
+          # We use GITHUB_REF_NAME to strip the 'v' and get the version number for the plist
+          cat << 'EOF' > SQLitizer.app/Contents/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>SQLitizer</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.adamghill.sqlitizer</string>
+              <key>CFBundleName</key>
+              <string>SQLitizer</string>
+              <key>CFBundleVersion</key>
+              <string>${GITHUB_REF_NAME#v}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${GITHUB_REF_NAME#v}</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>14.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          # If an AppIcon.icns was added to the repository root, copy it over!
+          if [ -f "AppIcon.icns" ]; then
+            cp AppIcon.icns SQLitizer.app/Contents/Resources/AppIcon.icns
+          elif [ -f "AppIcon.png" ]; then
+            # If only a PNG exists, try to convert it to ICNS on the runner
+            mkdir AppIcon.iconset
+            sips -z 16 16     AppIcon.png --out AppIcon.iconset/icon_16x16.png
+            sips -z 32 32     AppIcon.png --out AppIcon.iconset/icon_16x16@2x.png
+            sips -z 32 32     AppIcon.png --out AppIcon.iconset/icon_32x32.png
+            sips -z 64 64     AppIcon.png --out AppIcon.iconset/icon_32x32@2x.png
+            sips -z 128 128   AppIcon.png --out AppIcon.iconset/icon_128x128.png
+            sips -z 256 256   AppIcon.png --out AppIcon.iconset/icon_128x128@2x.png
+            sips -z 256 256   AppIcon.png --out AppIcon.iconset/icon_256x256.png
+            sips -z 512 512   AppIcon.png --out AppIcon.iconset/icon_256x256@2x.png
+            sips -z 512 512   AppIcon.png --out AppIcon.iconset/icon_512x512.png
+            sips -z 1024 1024 AppIcon.png --out AppIcon.iconset/icon_512x512@2x.png
+            iconutil -c icns AppIcon.iconset
+            cp AppIcon.icns SQLitizer.app/Contents/Resources/AppIcon.icns
+            rm -rf AppIcon.iconset
+          fi
+          
+          # Zip the app bundle for release
+          zip -r SQLitizer-macOS.zip SQLitizer.app
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SQLitizer-macOS.zip
+          generate_release_notes: true
