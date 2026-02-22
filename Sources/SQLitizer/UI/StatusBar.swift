@@ -54,7 +54,7 @@ struct StatusBar: View {
                 .disabled(dbManager.offset + dbManager.limit >= dbManager.totalRows)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 16)
         .padding(.vertical, 4)
         .frame(height: 28)
         .background(Color(NSColor.windowBackgroundColor))
@@ -116,7 +116,6 @@ struct LoadingOverlay: View {
     var body: some View {
         if isLoading {
             ZStack {
-                Color.black.opacity(0.1)
                 ProgressView("Loading...")
                     .padding()
                     .background(.ultraThinMaterial)

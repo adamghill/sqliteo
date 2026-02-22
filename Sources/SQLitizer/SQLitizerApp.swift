@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct SQLitizerApp: App {
     @State private var dbManager = DatabaseManager()
+    @State private var queryStore = SQLQueryStore()
 
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
@@ -12,6 +13,7 @@ struct SQLitizerApp: App {
         WindowGroup {
             ContentView()
                 .environment(dbManager)
+                .environment(queryStore)
         }
         .commands {
             CommandGroup(replacing: .newItem) {

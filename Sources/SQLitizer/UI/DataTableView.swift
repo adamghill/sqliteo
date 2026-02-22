@@ -57,8 +57,10 @@ struct DataTableRepresentable: NSViewRepresentable {
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.gridStyleMask = [.solidVerticalGridLineMask, .solidHorizontalGridLineMask]
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
-        tableView.rowHeight = 28
+        tableView.rowHeight = 24
 
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         scrollView.documentView = tableView
         return scrollView
     }
@@ -143,56 +145,78 @@ struct DataTableRepresentable: NSViewRepresentable {
 
             // Re-use or create view
             let cellIdentifier = NSUserInterfaceItemIdentifier("DataCell")
-            var textField =
-                tableView.makeView(withIdentifier: cellIdentifier, owner: nil) as? NSTextField
+            var cellView =
+                tableView.makeView(withIdentifier: cellIdentifier, owner: nil) as? NSTableCellView
 
-            if textField == nil {
-                textField = NSTextField()
-                textField?.identifier = cellIdentifier
-                textField?.delegate = self
-                textField?.isEditable = true
-                textField?.isSelectable = true
-                textField?.drawsBackground = false
-                textField?.isBordered = false
-                textField?.focusRingType = .none
+            if cellView == nil {
+                cellView = NSTableCellView()
+                cellView?.identifier = cellIdentifier
 
-                // Add padding/inset if needed, but NSTextField is usually okay
-                // Let's set the alignment based on column type
-                let type = parent.dbManager.columnTypes[identifier]?.uppercased() ?? ""
-                if type.contains("INT") || type.contains("REAL") || type.contains("DOUBLE")
-                    || type.contains("FLOAT") || type.contains("DECIMAL")
-                    || type.contains("NUMERIC")
-                {
-                    textField?.alignment = .right
-                } else {
-                    textField?.alignment = .left
+                let textField = NSTextField()
+                textField.identifier = NSUserInterfaceItemIdentifier("TextField")
+                textField.delegate = self
+                textField.isEditable = true
+                textField.isSelectable = true
+                textField.drawsBackground = false
+                textField.isBordered = false
+                textField.focusRingType = .none
+                textField.translatesAutoresizingMaskIntoConstraints = false
+
+                cellView?.addSubview(textField)
+                cellView?.textField = textField
+
+                if let cell = cellView {
+                    NSLayoutConstraint.activate([
+                        textField.leadingAnchor.constraint(
+                            equalTo: cell.leadingAnchor, constant: 4),
+                        textField.trailingAnchor.constraint(
+                            equalTo: cell.trailingAnchor, constant: -4),
+                        textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                    ])
                 }
 
-                textField?.lineBreakMode = .byTruncatingTail
+                textField.lineBreakMode = .byTruncatingTail
             }
 
-            textField?.stringValue = value
+            guard let textField = cellView?.textField else { return cellView }
+
+            textField.stringValue = value
+
+            // Let's set the alignment based on column type
+            let type = parent.dbManager.columnTypes[identifier]?.uppercased() ?? ""
+            if type.contains("INT") || type.contains("REAL") || type.contains("DOUBLE")
+                || type.contains("FLOAT") || type.contains("DECIMAL")
+                || type.contains("NUMERIC")
+            {
+                textField.alignment = .right
+            } else {
+                textField.alignment = .left
+            }
 
             // Handle highlighting
             let hasPendingChange = parent.dbManager.pendingChanges[dbRow.id]?[identifier] != nil
             let isActiveEdit = parent.dbManager.activeEdits[dbRow.id]?[identifier] != nil
 
             if isActiveEdit {
-                textField?.backgroundColor = .systemBlue.withAlphaComponent(0.15)
-                textField?.drawsBackground = true
+                cellView?.layer?.backgroundColor =
+                    NSColor.systemBlue.withAlphaComponent(0.15).cgColor
+                cellView?.wantsLayer = true
             } else if hasPendingChange {
-                textField?.backgroundColor = .systemYellow.withAlphaComponent(0.1)
-                textField?.drawsBackground = true
+                cellView?.layer?.backgroundColor =
+                    NSColor.systemYellow.withAlphaComponent(0.1).cgColor
+                cellView?.wantsLayer = true
             } else {
-                textField?.drawsBackground = false
+                cellView?.wantsLayer = false
+                cellView?.layer?.backgroundColor = nil
             }
 
-            return textField
+            return cellView
         }
 
         func controlTextDidChange(_ obj: Notification) {
             guard let textField = obj.object as? NSTextField,
-                let tableView = textField.superview?.superview as? NSTableView
+                let cellView = textField.superview as? NSTableCellView,
+                let tableView = cellView.superview?.superview as? NSTableView
             else { return }
 
             let row = tableView.row(for: textField)
@@ -204,34 +228,18 @@ struct DataTableRepresentable: NSViewRepresentable {
             let dbRow = parent.dbManager.rows[row]
             let newValue = textField.stringValue
 
-            parent.dbManager.startEditing(
-                rowID: dbRow.id, column: colIdentifier,
-                currentValue: dbRow.data[colIdentifier] ?? "")
             parent.dbManager.updateActiveEdit(
                 rowID: dbRow.id, column: colIdentifier, value: newValue)
         }
 
         func controlTextDidBeginEditing(_ obj: Notification) {
-            guard let textField = obj.object as? NSTextField,
-                let tableView = textField.superview?.superview as? NSTableView
-            else { return }
-
-            let row = tableView.row(for: textField)
-            let column = tableView.column(for: textField)
-
-            guard row != -1, column != -1 else { return }
-
-            let colIdentifier = tableView.tableColumns[column].identifier.rawValue
-            let dbRow = parent.dbManager.rows[row]
-
-            parent.dbManager.startEditing(
-                rowID: dbRow.id, column: colIdentifier,
-                currentValue: dbRow.data[colIdentifier] ?? "")
+            // No longer need to start editing here, we track actual changes in updateActiveEdit
         }
 
         func controlTextDidEndEditing(_ obj: Notification) {
             guard let textField = obj.object as? NSTextField,
-                let tableView = textField.superview?.superview as? NSTableView
+                let cellView = textField.superview as? NSTableCellView,
+                let tableView = cellView.superview?.superview as? NSTableView
             else { return }
 
             let row = tableView.row(for: textField)
@@ -243,9 +251,6 @@ struct DataTableRepresentable: NSViewRepresentable {
             let dbRow = parent.dbManager.rows[row]
             let newValue = textField.stringValue
 
-            parent.dbManager.startEditing(
-                rowID: dbRow.id, column: colIdentifier,
-                currentValue: dbRow.data[colIdentifier] ?? "")
             parent.dbManager.updateActiveEdit(
                 rowID: dbRow.id, column: colIdentifier, value: newValue)
         }

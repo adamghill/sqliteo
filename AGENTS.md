@@ -56,6 +56,7 @@
 - [x] GitHub Actions for automated releases.
 - [x] **Performance Optimization**: Replaced SwiftUI Table with native `NSTableView`.
 - [x] **Global Sorting**: Implemented server-side ordering.
+- [x] **Sidebar Search**: Fuzzy-match filter for table names in the sidebar.
 
 ### Future Enhancements
 - Export query results to CSV/JSON/SQL statement
@@ -63,5 +64,4 @@
 - Clickable foreign key values for navigation
 - Version check and update notifications (check GitHub releases)
 - Tabs for multiple ad-hoc sql queries
-- Search on table names in sidebar
 - Package signing

@@ -62,6 +62,7 @@ class DatabaseManager {
 
     var filters: [FilterCriteria] = []
     var tableDDL: String = ""
+    var customSQL: String? = nil
 
     // Sort State
     var sortColumn: String? = nil
@@ -98,8 +99,19 @@ class DatabaseManager {
     }
 
     func updateActiveEdit(rowID: TableRowID, column: String, value: String) {
-        if activeEdits[rowID] != nil {
+        guard let row = rows.first(where: { $0.id == rowID }) else { return }
+        let originalValue = row.data[column] ?? ""
+
+        if value != originalValue {
+            if activeEdits[rowID] == nil {
+                activeEdits[rowID] = [:]
+            }
             activeEdits[rowID]?[column] = value
+        } else {
+            activeEdits[rowID]?[column] = nil
+            if activeEdits[rowID]?.isEmpty == true {
+                activeEdits[rowID] = nil
+            }
         }
     }
 
@@ -156,10 +168,14 @@ class DatabaseManager {
 
     func selectTable(_ tableName: String) async {
         self.selectedTableName = tableName
+        self.customSQL = nil
         self.pendingChanges = [:]
         self.filters = []
         self.offset = 0
         self.tableDDL = ""
+        self.columns = []
+        self.rows = []
+        self.totalRows = 0
         self.isLoading = true
         self.errorMessage = nil
 
@@ -178,6 +194,7 @@ class DatabaseManager {
 
     func clearDataForSQLConsole() {
         self.selectedTableName = nil
+        self.customSQL = nil
         self.columns = []
         self.rows = []
         self.totalRows = 0
@@ -346,37 +363,74 @@ class DatabaseManager {
     func nextPage() async {
         if offset + limit < totalRows {
             offset += limit
-            await applyFilter()
+            if selectedTableName != nil {
+                await applyFilter()
+            } else if let sql = customSQL {
+                await executeCustomSQL(sql, resetOffset: false)
+            }
         }
     }
 
     func previousPage() async {
         if offset - limit >= 0 {
             offset -= limit
-            await applyFilter()
+            if selectedTableName != nil {
+                await applyFilter()
+            } else if let sql = customSQL {
+                await executeCustomSQL(sql, resetOffset: false)
+            }
         }
     }
 
-    func executeCustomSQL(_ sql: String) async {
+    func executeCustomSQL(_ sql: String, resetOffset: Bool = true) async {
         guard let dbQueue = dbQueue else { return }
 
         self.selectedTableName = nil
+        self.customSQL = sql
         self.pendingChanges = [:]
         self.isLoading = true
         self.errorMessage = nil
+        if resetOffset {
+            self.offset = 0
+            self.columns = []
+            self.rows = []
+            self.totalRows = 0
+        }
 
         defer { self.isLoading = false }
 
         do {
-            let (newColumns, newRows) = try await dbQueue.read { db -> ([String], [DBRow]) in
-                let rows = try Row.fetchAll(db, sql: sql)
-                var cols: [String] = []
+            let offsetSnapshot = self.offset
+            let limitSnapshot = self.limit
 
-                if let firstRow = rows.first {
-                    cols = Array(firstRow.columnNames)
-                } else {
-                    let statement = try db.makeStatement(sql: sql)
-                    cols = Array(statement.columnNames)
+            let (newColumns, total, newRows) = try await dbQueue.read {
+                db -> ([String], Int, [DBRow]) in
+                var count = 0
+                var cleanSQL = sql.trimmingCharacters(in: .whitespacesAndNewlines)
+                while cleanSQL.hasSuffix(";") {
+                    cleanSQL.removeLast()
+                    cleanSQL = cleanSQL.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+
+                let isSelect = cleanSQL.uppercased().hasPrefix("SELECT")
+
+                var paginatedSQL = cleanSQL
+                if isSelect {
+                    do {
+                        count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM (\(cleanSQL))") ?? 0
+                        paginatedSQL =
+                            "SELECT * FROM (\(cleanSQL)) LIMIT \(limitSnapshot) OFFSET \(offsetSnapshot)"
+                    } catch {
+                        // Fallback if counting fails (e.g. invalid syntax for subquery)
+                    }
+                }
+
+                let statement = try db.makeStatement(sql: paginatedSQL)
+                let cols = Array(statement.columnNames)
+                let rows = try Row.fetchAll(statement)
+
+                if !isSelect || count == 0 {
+                    count = rows.count
                 }
 
                 let dbRows = rows.map { row in
@@ -388,12 +442,12 @@ class DatabaseManager {
                     }
                     return DBRow(id: .uuid(UUID()), data: dict)
                 }
-                return (cols, dbRows)
+                return (cols, count, dbRows)
             }
 
             self.columns = newColumns
             self.rows = newRows
-            self.totalRows = self.rows.count
+            self.totalRows = total
             self.primaryKeyColumns = []
         } catch {
             self.errorMessage = "Error executing SQL: \(error.localizedDescription)"
