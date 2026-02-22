@@ -20,6 +20,7 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "CodeEditor", package: "CodeEditor"),
             ],
+            exclude: ["Info.plist"],
             resources: [
                 .process("Assets.xcassets")
             ]

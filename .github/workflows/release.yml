@@ -57,26 +57,13 @@ jobs:
           # If an AppIcon.icns was added to the repository root, copy it over!
           if [ -f "AppIcon.icns" ]; then
             cp AppIcon.icns SQLitizer.app/Contents/Resources/AppIcon.icns
-          elif [ -f "AppIcon.png" ]; then
-            # If only a PNG exists, try to convert it to ICNS on the runner
-            mkdir AppIcon.iconset
-            sips -z 16 16     AppIcon.png --out AppIcon.iconset/icon_16x16.png
-            sips -z 32 32     AppIcon.png --out AppIcon.iconset/icon_16x16@2x.png
-            sips -z 32 32     AppIcon.png --out AppIcon.iconset/icon_32x32.png
-            sips -z 64 64     AppIcon.png --out AppIcon.iconset/icon_32x32@2x.png
-            sips -z 128 128   AppIcon.png --out AppIcon.iconset/icon_128x128.png
-            sips -z 256 256   AppIcon.png --out AppIcon.iconset/icon_128x128@2x.png
-            sips -z 256 256   AppIcon.png --out AppIcon.iconset/icon_256x256.png
-            sips -z 512 512   AppIcon.png --out AppIcon.iconset/icon_256x256@2x.png
-            sips -z 512 512   AppIcon.png --out AppIcon.iconset/icon_512x512.png
-            sips -z 1024 1024 AppIcon.png --out AppIcon.iconset/icon_512x512@2x.png
-            iconutil -c icns AppIcon.iconset
-            cp AppIcon.icns SQLitizer.app/Contents/Resources/AppIcon.icns
-            rm -rf AppIcon.iconset
           fi
           
-          # Zip the app bundle for release
-          zip -r SQLitizer-macOS.zip SQLitizer.app
+          # Sign the application ad-hoc
+          codesign --force --deep -s - SQLitizer.app
+
+          # Zip the app bundle for release using ditto to preserve all attributes and symlinks
+          ditto -c -k --keepParent SQLitizer.app SQLitizer-macOS.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
