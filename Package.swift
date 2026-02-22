@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "SQLitizer",
+    name: "SQLiteo",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "SQLitizer", targets: ["SQLitizer"])
+        .executable(name: "SQLiteo", targets: ["SQLiteo"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "6.29.3"),
@@ -15,7 +15,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "SQLitizer",
+            name: "SQLiteo",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "CodeEditor", package: "CodeEditor"),
@@ -26,8 +26,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "SQLitizerTests",
-            dependencies: ["SQLitizer"]
+            name: "SQLiteoTests",
+            dependencies: ["SQLiteo"]
         ),
     ]
 )

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import SQLitizer
+@testable import SQLiteo
 
 struct SQLQueryExtractionTests {
     @Test func testSelectionExactMatchIfRangeHasLength() {

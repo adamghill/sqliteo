@@ -81,7 +81,7 @@ class SQLQueryStore {
         ).first!
         queriesDirectory =
             appSupport
-            .appendingPathComponent("SQLitizer", isDirectory: true)
+            .appendingPathComponent("SQLiteo", isDirectory: true)
             .appendingPathComponent("Queries", isDirectory: true)
             .appendingPathComponent(dirName, isDirectory: true)
 

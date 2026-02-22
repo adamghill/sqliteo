@@ -19,6 +19,26 @@
             "target": "SQLitizer",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release SQLitizer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:sqlitizer}",
+            "name": "Debug SQLiteo",
+            "target": "SQLiteo",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug SQLiteo"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:sqlitizer}",
+            "name": "Release SQLiteo",
+            "target": "SQLiteo",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release SQLiteo"
         }
     ]
 }

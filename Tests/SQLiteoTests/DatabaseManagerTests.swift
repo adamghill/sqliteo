@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import Testing
 
-@testable import SQLitizer
+@testable import SQLiteo
 
 @MainActor
 @Suite("Database Manager Tests")

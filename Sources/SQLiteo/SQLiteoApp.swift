@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct SQLitizerApp: App {
+struct SQLiteoApp: App {
     @State private var dbManager = DatabaseManager()
     @State private var queryStore = SQLQueryStore()
 
@@ -24,12 +24,12 @@ struct SQLitizerApp: App {
             }
 
             CommandGroup(after: .appInfo) {
-                Button("About SQLitizer") {
+                Button("About SQLiteo") {
                     NSApp.orderFrontStandardAboutPanel(
                         options: [
                             NSApplication.AboutPanelOptionKey.credits: NSAttributedString(
                                 string: "A native SQLite browser for macOS."),
-                            NSApplication.AboutPanelOptionKey.applicationName: "SQLitizer",
+                            NSApplication.AboutPanelOptionKey.applicationName: "SQLiteo",
                         ]
                     )
                 }

@@ -6,27 +6,27 @@ VERSION=${1:-"1.0.0"}
 echo "Building release mode for version $VERSION..."
 swift build -c release
 
-echo "Packaging SQLitizer.app..."
-rm -rf SQLitizer.app
-mkdir -p SQLitizer.app/Contents/MacOS
-mkdir -p SQLitizer.app/Contents/Resources
-cp .build/release/SQLitizer SQLitizer.app/Contents/MacOS/SQLitizer
+echo "Packaging SQLiteo.app..."
+rm -rf SQLiteo.app
+mkdir -p SQLiteo.app/Contents/MacOS
+mkdir -p SQLiteo.app/Contents/Resources
+cp .build/release/SQLiteo SQLiteo.app/Contents/MacOS/SQLiteo
 
 echo "Copying resource bundles..."
-cp -R .build/release/*.bundle SQLitizer.app/Contents/Resources/
+cp -R .build/release/*.bundle SQLiteo.app/Contents/Resources/
 
 # Generate Info.plist dynamically
-cat << EOF > SQLitizer.app/Contents/Info.plist
+cat << EOF > SQLiteo.app/Contents/Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>SQLitizer</string>
+    <string>SQLiteo</string>
     <key>CFBundleIdentifier</key>
-    <string>com.adamghill.sqlitizer</string>
+    <string>com.adamghill.sqliteo</string>
     <key>CFBundleName</key>
-    <string>SQLitizer</string>
+    <string>SQLiteo</string>
     <key>CFBundleVersion</key>
     <string>$VERSION</string>
     <key>CFBundleShortVersionString</key>
@@ -42,15 +42,15 @@ cat << EOF > SQLitizer.app/Contents/Info.plist
 EOF
 
 if [ -f "AppIcon.icns" ]; then
-    cp AppIcon.icns SQLitizer.app/Contents/Resources/AppIcon.icns
+    cp AppIcon.icns SQLiteo.app/Contents/Resources/AppIcon.icns
 else
     echo "Warning: AppIcon.icns not found! Run 'just generate-icon' first if you need it."
 fi
 
 echo "Signing application ad-hoc..."
-codesign --force --deep -s - SQLitizer.app
+codesign --force --deep -s - SQLiteo.app
 
 echo "Creating zip archive with ditto..."
-ditto -c -k --keepParent SQLitizer.app SQLitizer-macOS.zip
+ditto -c -k --keepParent SQLiteo.app SQLiteo-macOS.zip
 
-echo "Successfully created SQLitizer-macOS.zip!"
+echo "Successfully created SQLiteo-macOS.zip!"

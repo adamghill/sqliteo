@@ -1,6 +1,6 @@
 import Testing
 
-@testable import SQLitizer
+@testable import SQLiteo
 
 @Suite("Fuzzy Match Tests")
 struct FuzzyMatchTests {

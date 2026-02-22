@@ -1,8 +1,8 @@
-# 🚀 SQLitizer
+# 🚀 SQLiteo
 
 > The native macOS SQLite browser built for normal people.
 
-SQLitizer is a native macOS SQLite browser built with Swift and absolute precision. It's fast, it's light, and it doesn't try to reinvent the wheel &mdash; it just makes the wheel spin really, really well.
+SQLiteo is a native macOS SQLite browser built with Swift and absolute precision. It's fast, it's light, and it doesn't try to reinvent the wheel &mdash; it just makes the wheel spin really, really well.
 
 ## ✨ Features
 
@@ -16,28 +16,28 @@ SQLitizer is a native macOS SQLite browser built with Swift and absolute precisi
 
 ## 🛠️ Getting Started
 
-1. Download the latest `.zip` from the [Releases](https://github.com/adamghill/sqlitizer/releases) page.
-2. Drag `SQLitizer.app` to your Applications folder.
+1. Download the latest `.zip` from the [Releases](https://github.com/adamghill/sqliteo/releases) page.
+2. Drag `SQLiteo.app` to your Applications folder.
 3. Start queryin'.
 
 > [!IMPORTANT]
 > **"Apple could not verify..."?**
-> Since SQLitizer isn't signed with an Apple Developer certificate (yet!), macOS will block it by default.
+> Since SQLiteo isn't signed with an Apple Developer certificate (yet!), macOS will block it by default.
 >
 > **To open it:**
-> 1. Try to open `SQLitizer.app` (it will fail with the warning).
+> 1. Try to open `SQLiteo.app` (it will fail with the warning).
 > 2. Open **System Settings** -> **Privacy & Security**.
 > 3. Scroll down to the **Security** section and click **Open Anyway**.
 > 4. Authenticate and click **Open** one last time.
 >
 > *Alternatively, run this in Terminal:*
 > ```bash
-> xattr -d com.apple.quarantine /Applications/SQLitizer.app
+> xattr -d com.apple.quarantine /Applications/SQLiteo.app
 > ```
 
 ## 🤝 Contributing
 
-Have an idea for SQLitizer? Open a PR! We're all about that open-source love. 💖
+Have an idea for SQLiteo? Open a PR! We're all about that open-source love. 💖
 
 ## 📜 License
 

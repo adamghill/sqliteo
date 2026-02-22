@@ -4,3 +4,5 @@
 DerivedData/
 *.swp
 *~
+SQLiteo-*
+SQLiteo.app/*
