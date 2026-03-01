@@ -240,217 +240,236 @@ struct ContentView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 250)
+        } detail: {
+            Group {
+                if let query = queryStore.selectedQuery {
+                    // SQL Query Editor
+                    VStack(spacing: 0) {
+                        ZStack(alignment: .bottomLeading) {
+                            CodeEditor(
+                                text: selectedQuerySQL,
+                                position: $editorPosition,
+                                messages: $editorMessages,
+                                language: .sqlite()
+                            )
+                            .environment(
+                                \.codeEditorTheme,
+                                colorScheme == .dark ? safeDefaultDark : safeDefaultLight
+                            )
+                            .environment(
+                                \.codeEditorLayoutConfiguration,
+                                CodeEditor.LayoutConfiguration(showMinimap: false, wrapText: true)
+                            )
+                            .frame(height: max(60, sqlEditorHeight))
+                            .background(Color(NSColor.textBackgroundColor))
+                            .onChange(of: queryStore.selectedQuery?.sql) { _, newValue in
+                                if ignoreNextSQLChange {
+                                    ignoreNextSQLChange = false
+                                    return
+                                }
+                                isCyclingAutocomplete = false
+                                debounceTask?.cancel()
+                                debounceTask = Task {
+                                    try? await Task.sleep(nanoseconds: 150_000_000)
+                                    guard !Task.isCancelled else { return }
+                                    await updateSuggestions(for: newValue ?? "")
+                                }
+                            }
+                            .onKeyPress(.return, phases: .down) { press in
+                                if isCyclingAutocomplete {
+                                    isCyclingAutocomplete = false
+                                    showSuggestions = false
+
+                                    // Move cursor to the end of the word (deselect)
+                                    if let first = editorPosition.selections.first {
+                                        editorPosition.selections = [
+                                            NSRange(location: first.upperBound, length: 0)
+                                        ]
+                                    }
+                                    return .handled
+                                }
+                                return .ignored
+                            }
+                            .onKeyPress(.space, phases: .down) { press in
+                                if press.modifiers.contains(.control) {
+                                    Task {
+                                        await updateSuggestions(
+                                            for: queryStore.selectedQuery?.sql ?? "")
+                                    }
+                                    return .handled
+                                }
+                                return .ignored
+                            }
+                            .onKeyPress(.tab, phases: .down) { press in
+                                if showSuggestions && !suggestions.isEmpty {
+                                    cycleSuggestion()
+                                    return .handled
+                                }
+                                return .ignored
+                            }
+
+                            if showSuggestions && !suggestions.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(Array(suggestions.enumerated()), id: \.element) {
+                                            index, suggestion in
+                                            Button {
+                                                insertSuggestion(suggestion)
+                                            } label: {
+                                                Text(suggestion)
+                                                    .font(.caption)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(
+                                                        isCyclingAutocomplete
+                                                            && index == autocompleteCycleIndex
+                                                            ? Color.accentColor
+                                                            : Color.accentColor.opacity(0.2)
+                                                    )
+                                                    .foregroundColor(
+                                                        isCyclingAutocomplete
+                                                            && index == autocompleteCycleIndex
+                                                            ? Color.white
+                                                            : .primary
+                                                    )
+                                                    .cornerRadius(4)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                }
+                                .background(.regularMaterial)
+                                .cornerRadius(6)
+                                .shadow(radius: 2)
+                                .padding(.leading, 8)
+                                .padding(.bottom, 8)
+                            }
+                        }
+
+                        HStack {
+                            Button {
+                                let text = textToExecute(for: query)
+                                Task {
+                                    await dbManager.executeCustomSQL(text)
+                                }
+                            } label: {
+                                Label("Run Query", systemImage: "play.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .keyboardShortcut(.return, modifiers: .command)
+
+                            Spacer()
+                        }
+                        .padding(8)
+                        .background(Color(NSColor.windowBackgroundColor))
+
+                        Rectangle()
+                            .fill(Color(NSColor.separatorColor))
+                            .frame(height: 1)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                            .onHover { inside in
+                                if inside {
+                                    NSCursor.resizeUpDown.push()
+                                } else {
+                                    NSCursor.pop()
+                                }
+                            }
+                            .gesture(
+                                DragGesture(coordinateSpace: .global)
+                                    .onChanged { value in
+                                        isDraggingEditorDivider = true
+                                        if editorDragStartHeight == nil {
+                                            editorDragStartHeight = sqlEditorHeight
+                                        }
+                                        if let start = editorDragStartHeight {
+                                            activeSqlEditorHeight = max(
+                                                60, start + value.translation.height)
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        if let finalHeight = activeSqlEditorHeight {
+                                            savedSqlEditorHeight = finalHeight
+                                        }
+                                        editorDragStartHeight = nil
+                                        activeSqlEditorHeight = nil
+                                        isDraggingEditorDivider = false
+                                    }
+                            )
+
+                        DataTableView()
+                        StatusBar(selectedTab: $selectedTab, showTabs: false)
+                    }
+                    .navigationTitle(query.name)
+                    .overlay(LoadingOverlay(isLoading: dbManager.isLoading))
+                } else if let tableName = dbManager.selectedTableName {
+                    VStack(spacing: 0) {
+                        switch selectedTab {
+                        case .data:
+                            DataTableView()
+                        case .schema:
+                            SchemaView()
+                        }
+
+                        StatusBar(selectedTab: $selectedTab)
+                    }
+                    .navigationTitle(tableName)
+                    .overlay(LoadingOverlay(isLoading: dbManager.isLoading))
+
+                } else {
+                    VStack(spacing: 20) {
+                        Image(systemName: "square.grid.3x2")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+
+                        if dbManager.fileURL != nil {
+                            Text("Select a table or a SQL query")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Open a database")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Button("Open SQLite File...") {
+                                FileActions.openFile(dbManager: dbManager)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Button("New Database...") {
+                                FileActions.createNewFile(dbManager: dbManager)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
+                        if let error = dbManager.errorMessage {
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: dbManager.openFile) {
+                ToolbarItemGroup(placement: .automatic) {
+                    Spacer()
+
+                    Button {
+                        Task {
+                            await dbManager.refreshDatabase()
+                        }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(dbManager.fileURL == nil)
+
+                    Button(action: {
+                        FileActions.openFile(dbManager: dbManager)
+                    }) {
                         Label("Open Database", systemImage: "folder")
                     }
                 }
-            }
-        } detail: {
-            if let query = queryStore.selectedQuery {
-                // SQL Query Editor
-                VStack(spacing: 0) {
-                    ZStack(alignment: .bottomLeading) {
-                        CodeEditor(
-                            text: selectedQuerySQL,
-                            position: $editorPosition,
-                            messages: $editorMessages,
-                            language: .sqlite()
-                        )
-                        .environment(
-                            \.codeEditorTheme,
-                            colorScheme == .dark ? safeDefaultDark : safeDefaultLight
-                        )
-                        .environment(
-                            \.codeEditorLayoutConfiguration,
-                            CodeEditor.LayoutConfiguration(showMinimap: false, wrapText: true)
-                        )
-                        .frame(height: max(60, sqlEditorHeight))
-                        .background(Color(NSColor.textBackgroundColor))
-                        .onChange(of: queryStore.selectedQuery?.sql) { _, newValue in
-                            if ignoreNextSQLChange {
-                                ignoreNextSQLChange = false
-                                return
-                            }
-                            isCyclingAutocomplete = false
-                            debounceTask?.cancel()
-                            debounceTask = Task {
-                                try? await Task.sleep(nanoseconds: 150_000_000)
-                                guard !Task.isCancelled else { return }
-                                await updateSuggestions(for: newValue ?? "")
-                            }
-                        }
-                        .onKeyPress(.return, phases: .down) { press in
-                            if isCyclingAutocomplete {
-                                isCyclingAutocomplete = false
-                                showSuggestions = false
-
-                                // Move cursor to the end of the word (deselect)
-                                if let first = editorPosition.selections.first {
-                                    editorPosition.selections = [
-                                        NSRange(location: first.upperBound, length: 0)
-                                    ]
-                                }
-                                return .handled
-                            }
-                            return .ignored
-                        }
-                        .onKeyPress(.space, phases: .down) { press in
-                            if press.modifiers.contains(.control) {
-                                Task {
-                                    await updateSuggestions(
-                                        for: queryStore.selectedQuery?.sql ?? "")
-                                }
-                                return .handled
-                            }
-                            return .ignored
-                        }
-                        .onKeyPress(.tab, phases: .down) { press in
-                            if showSuggestions && !suggestions.isEmpty {
-                                cycleSuggestion()
-                                return .handled
-                            }
-                            return .ignored
-                        }
-
-                        if showSuggestions && !suggestions.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(Array(suggestions.enumerated()), id: \.element) {
-                                        index, suggestion in
-                                        Button {
-                                            insertSuggestion(suggestion)
-                                        } label: {
-                                            Text(suggestion)
-                                                .font(.caption)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(
-                                                    isCyclingAutocomplete
-                                                        && index == autocompleteCycleIndex
-                                                        ? Color.accentColor
-                                                        : Color.accentColor.opacity(0.2)
-                                                )
-                                                .foregroundColor(
-                                                    isCyclingAutocomplete
-                                                        && index == autocompleteCycleIndex
-                                                        ? Color.white
-                                                        : .primary
-                                                )
-                                                .cornerRadius(4)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                            }
-                            .background(.regularMaterial)
-                            .cornerRadius(6)
-                            .shadow(radius: 2)
-                            .padding(.leading, 8)
-                            .padding(.bottom, 8)
-                        }
-                    }
-
-                    HStack {
-                        Button {
-                            let text = textToExecute(for: query)
-                            Task {
-                                await dbManager.executeCustomSQL(text)
-                            }
-                        } label: {
-                            Label("Run Query", systemImage: "play.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut(.return, modifiers: .command)
-
-                        Spacer()
-                    }
-                    .padding(8)
-                    .background(Color(NSColor.windowBackgroundColor))
-
-                    Rectangle()
-                        .fill(Color(NSColor.separatorColor))
-                        .frame(height: 1)
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
-                        .onHover { inside in
-                            if inside {
-                                NSCursor.resizeUpDown.push()
-                            } else {
-                                NSCursor.pop()
-                            }
-                        }
-                        .gesture(
-                            DragGesture(coordinateSpace: .global)
-                                .onChanged { value in
-                                    isDraggingEditorDivider = true
-                                    if editorDragStartHeight == nil {
-                                        editorDragStartHeight = sqlEditorHeight
-                                    }
-                                    if let start = editorDragStartHeight {
-                                        activeSqlEditorHeight = max(
-                                            60, start + value.translation.height)
-                                    }
-                                }
-                                .onEnded { _ in
-                                    if let finalHeight = activeSqlEditorHeight {
-                                        savedSqlEditorHeight = finalHeight
-                                    }
-                                    editorDragStartHeight = nil
-                                    activeSqlEditorHeight = nil
-                                    isDraggingEditorDivider = false
-                                }
-                        )
-
-                    DataTableView()
-                    StatusBar(selectedTab: $selectedTab, showTabs: false)
-                }
-                .navigationTitle(query.name)
-                .overlay(LoadingOverlay(isLoading: dbManager.isLoading))
-            } else if let tableName = dbManager.selectedTableName {
-                VStack(spacing: 0) {
-                    switch selectedTab {
-                    case .data:
-                        DataTableView()
-                    case .schema:
-                        SchemaView()
-                    }
-
-                    StatusBar(selectedTab: $selectedTab)
-                }
-                .navigationTitle(tableName)
-                .overlay(LoadingOverlay(isLoading: dbManager.isLoading))
-
-            } else {
-                VStack(spacing: 20) {
-                    Image(systemName: "square.grid.3x2")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-
-                    if dbManager.fileURL != nil {
-                        Text("Select a table or a SQL query")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Open a database")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        Button("Open SQLite File...") {
-                            dbManager.openFile()
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-
-                    if let error = dbManager.errorMessage {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(minWidth: 800, minHeight: 600)

@@ -6,7 +6,7 @@
     - *Rationale*: Unified SwiftUI architecture for navigation and state, but uses native `NSTableView` via `NSViewRepresentable` for high-performance data grids.
 - **Database Library**: **GRDB.swift**.
     - *Rationale*: A powerful and modern SQLite toolkit for Swift. It makes it easy to work with SQLite in a type-safe way and integrates well with SwiftUI's reactive state.
-- **Code Editor**: **CodeEditor**.
+- **Code Editor**: **CodeEditorView**.
     - *Rationale*: Used for the SQL Console to provide syntax highlighting and a better editing experience for arbitrary SQL.
 - **Build System**: **Swift Package Manager (SPM)**.
 - **Target OS**: macOS 14.0+.
@@ -17,7 +17,7 @@
 3. **Data Viewer**: Native `NSTableView` wrapper for high-performance data grids with robust column resizing and global sorting.
 4. **Data Editor**: Inline cell editing with transaction support and change tracking, implemented via `NSTextField` delegates for responsiveness.
 5. **Filtering**: Column-based filtering with support for various operators (contains, equals, etc.), performed server-side for performance.
-6. **SQL Editor**: SQL Console with syntax highlighting (via CodeEditor) and fuzzy-match autocomplete for keywords, tables, and columns.
+6. **SQL Editor**: SQL Console with syntax highlighting (via CodeEditorView) and fuzzy-match autocomplete for keywords, tables, and columns.
 7. **File Metadata**: Displaying file name, location, size, and modification date in the sidebar.
 8. **Global Sorting**: Sort large datasets natively by tapping column headers, triggering SQL-based ordering.
 
@@ -57,6 +57,10 @@
 - [x] **Performance Optimization**: Replaced SwiftUI Table with native `NSTableView`.
 - [x] **Global Sorting**: Implemented server-side ordering.
 - [x] **Sidebar Search**: Fuzzy-match filter for table names in the sidebar.
+- [x] **Editor Migration**: Replaced `CodeEditor` with `CodeEditorView` for improved stability.
+- [x] **Autocomplete Polish**: Refined SQL autocomplete logic to prevent redundant suggestions.
+- [x] **Performance Optimization**: Surgical `NSTableView` updates to minimize `reloadData()` calls.
+- [x] **Performance Optimization**: Background schema & metadata pre-fetching for faster loading.
 
 ### Future Enhancements
 - Export query results to CSV/JSON/SQL statement

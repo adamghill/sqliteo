@@ -40,6 +40,7 @@ final class DatabaseManagerTests {
 
         manager = DatabaseManager()
         await manager.connect(to: dbURL)
+        await manager.prefetchTask?.value
     }
 
     deinit {
@@ -305,5 +306,44 @@ final class DatabaseManagerTests {
                 db, sql: "SELECT COUNT(*) FROM users WHERE name = 'Alice Edited'")
             #expect(count == 1)
         }
+    }
+
+    @Test("Database refresh picks up new external tables and columns")
+    func testRefreshDatabasePicksUpExternalChanges() async throws {
+        // 1. Initial State
+        await manager.selectTable("users")
+        #expect(manager.tableNames.contains("users"))
+        #expect(!manager.tableNames.contains("new_external_table"))
+        
+        // 2. Simulate external change via a separate connection
+        let externalDbQueue = try DatabaseQueue(path: dbURL.path)
+        try await externalDbQueue.write { db in
+            try db.execute(sql: "CREATE TABLE new_external_table (id INTEGER PRIMARY KEY, note TEXT);")
+            try db.execute(sql: "INSERT INTO new_external_table (note) VALUES ('test note');")
+            try db.execute(sql: "ALTER TABLE users ADD COLUMN external_col TEXT;")
+        }
+        
+        // 3. Trigger refresh in the manager
+        // This will internally call `selectTable("users")` which might race with prefetch
+        await manager.refreshDatabase()
+        
+        // Ensure background schema prefetch completes so schema is fully available
+        await manager.prefetchTask?.value
+        
+        // Let's re-select users to ensure the UI gets the updated columns from the cache
+        await manager.selectTable("users")
+        
+        // 4. Verify new state
+        #expect(manager.tableNames.contains("new_external_table"))
+        
+        // Verify users table picked up new column since it was technically re-selected during refresh
+        #expect(manager.selectedTableName == "users")
+        #expect(manager.columns.contains("external_col"))
+        
+        // Let's actually select the new table to prove the schema is working
+        await manager.selectTable("new_external_table")
+        #expect(manager.columns == ["id", "note"])
+        #expect(manager.rows.count == 1)
+        #expect(manager.rows[0].data["note"] == "test note")
     }
 }

@@ -8,3 +8,6 @@ generate-icon:
 
 test:
     swift test
+
+run:
+    swift run

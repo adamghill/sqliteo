@@ -1,0 +1,8 @@
+- create table
+- edit table schema GUI
+- delete table
+- rename table
+- tabs for looking at multiple tables / tabs for multiple databases
+- export table as CSV
+- export table as SQL script
+- Modal for seeing JSON data

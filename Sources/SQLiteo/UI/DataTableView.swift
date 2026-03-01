@@ -71,12 +71,74 @@ struct DataTableRepresentable: NSViewRepresentable {
         let columnsChanged = context.coordinator.updateColumns(
             for: tableView, columns: dbManager.columns)
 
-        if columnsChanged || context.coordinator.lastRowCount != dbManager.rows.count {
-            context.coordinator.lastRowCount = dbManager.rows.count
+        let dataChanged = context.coordinator.lastDataUpdateCounter != dbManager.dataUpdateCounter
+
+        if columnsChanged || dataChanged {
+            context.coordinator.lastDataUpdateCounter = dbManager.dataUpdateCounter
+            context.coordinator.lastActiveEdits = dbManager.activeEdits
+            context.coordinator.lastPendingChanges = dbManager.pendingChanges
             tableView.reloadData()
         } else {
-            // Check if any visible rows need updating (simple approach: reload all for now)
-            tableView.reloadData()
+            // Check if any specific rows need updating without triggering a full reload
+            let newActiveEdits = dbManager.activeEdits
+            let newPendingChanges = dbManager.pendingChanges
+            let lastActiveEdits = context.coordinator.lastActiveEdits
+            let lastPendingChanges = context.coordinator.lastPendingChanges
+
+            var changedRowIDs = Set<TableRowID>()
+            for id in newActiveEdits.keys { changedRowIDs.insert(id) }
+            for id in lastActiveEdits.keys { changedRowIDs.insert(id) }
+            for id in newPendingChanges.keys { changedRowIDs.insert(id) }
+            for id in lastPendingChanges.keys { changedRowIDs.insert(id) }
+
+            if !changedRowIDs.isEmpty {
+                for rowID in changedRowIDs {
+                    if let index = dbManager.rows.firstIndex(where: { $0.id == rowID }) {
+                        for colIndex in 0..<tableView.tableColumns.count {
+                            if let cellView = tableView.view(
+                                atColumn: colIndex, row: index, makeIfNecessary: false)
+                                as? NSTableCellView
+                            {
+                                let colIdentifier = tableView.tableColumns[colIndex].identifier
+                                    .rawValue
+                                let isActiveEdit = newActiveEdits[rowID]?[colIdentifier] != nil
+                                let hasPendingChange =
+                                    newPendingChanges[rowID]?[colIdentifier] != nil
+
+                                if isActiveEdit {
+                                    cellView.layer?.backgroundColor =
+                                        NSColor.systemBlue.withAlphaComponent(0.15).cgColor
+                                    cellView.wantsLayer = true
+                                } else if hasPendingChange {
+                                    cellView.layer?.backgroundColor =
+                                        NSColor.systemYellow.withAlphaComponent(0.1).cgColor
+                                    cellView.wantsLayer = true
+
+                                    if let val = newPendingChanges[rowID]?[colIdentifier] {
+                                        if cellView.textField?.stringValue != val {
+                                            cellView.textField?.stringValue = val
+                                        }
+                                    }
+                                } else {
+                                    cellView.wantsLayer = false
+                                    cellView.layer?.backgroundColor = nil
+
+                                    let dbRow = dbManager.rows[index]
+                                    let originalVal = dbRow.data[colIdentifier] ?? ""
+                                    // only change text if not focused to avoid stealing keystrokes, but if user cancelled, they are focused and value should revert.
+                                    // If cell is not an active edit, user is not typing in it anyway! So safe to revert.
+                                    if cellView.textField?.stringValue != originalVal {
+                                        cellView.textField?.stringValue = originalVal
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            context.coordinator.lastActiveEdits = newActiveEdits
+            context.coordinator.lastPendingChanges = newPendingChanges
         }
 
         if let highlightId = dbManager.highlightedRowID,
@@ -100,8 +162,10 @@ struct DataTableRepresentable: NSViewRepresentable {
     class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
         var parent: DataTableRepresentable
         var columns: [String] = []
-        var lastRowCount: Int = 0
+        var lastDataUpdateCounter: Int = -1
         var lastHighlightedRowID: TableRowID? = nil
+        var lastActiveEdits: [TableRowID: [String: String]] = [:]
+        var lastPendingChanges: [TableRowID: [String: String]] = [:]
 
         init(_ parent: DataTableRepresentable) {
             self.parent = parent

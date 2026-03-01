@@ -11,7 +11,9 @@
 		0E274EDA53B95C3B2455CC04 /* SQLiteoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4634F766FAA47C0DD2560CCB /* SQLiteoApp.swift */; };
 		21817A3220632FAB3049A934 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1ACD79BF5AFD5EA3D52EF98 /* AboutView.swift */; };
 		2B29CAD521C57BF595FB35DD /* String+FuzzyMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23841C75052DB5EEC0A1E6E0 /* String+FuzzyMatch.swift */; };
+		2F995394FE72943BCD69617D /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137F1506BEBD5BE34CAC2FC0 /* RootView.swift */; };
 		32B5289FFBACB56DCBAC0725 /* DataTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87ECA46672D3E90AC9C0E84A /* DataTableView.swift */; };
+		372C3C48B3BBDEEB1E3C81B4 /* FileActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6801CBD1A742B06F2C64489 /* FileActions.swift */; };
 		58AE46DBF925A20DFB8F6F50 /* LanguageSupport in Frameworks */ = {isa = PBXBuildFile; productRef = BF819E06D6E7E7561054C335 /* LanguageSupport */; };
 		712EBDEEA304014718B1E527 /* SQLQueryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6CD586C8465E4029E783AE /* SQLQueryStore.swift */; };
 		8DC57F816A593336762A4FD7 /* FKPreviewPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3480C2F4B3CF52810F1B8E45 /* FKPreviewPopover.swift */; };
@@ -26,6 +28,7 @@
 /* Begin PBXFileReference section */
 		0D6CD586C8465E4029E783AE /* SQLQueryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLQueryStore.swift; sourceTree = "<group>"; };
 		106E77A20A5BAEF3A00BB35E /* SQLiteo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SQLiteo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		137F1506BEBD5BE34CAC2FC0 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		1853E18797DDE72939DC80B8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		23841C75052DB5EEC0A1E6E0 /* String+FuzzyMatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+FuzzyMatch.swift"; sourceTree = "<group>"; };
 		2DF4F9DCA4C529556D3834AB /* FilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterView.swift; sourceTree = "<group>"; };
@@ -36,6 +39,7 @@
 		A066E6D573FEF371B12FB01B /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
 		A7DB606EC3FDFAE198E5D6B6 /* SQLiteo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SQLiteo.entitlements; sourceTree = "<group>"; };
 		B1ACD79BF5AFD5EA3D52EF98 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		B6801CBD1A742B06F2C64489 /* FileActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileActions.swift; sourceTree = "<group>"; };
 		C4B4B70323BD418C224679A4 /* StatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBar.swift; sourceTree = "<group>"; };
 		F6CC086A367905E7807A1E6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -57,6 +61,7 @@
 		05CB89E23925781B60ADEFD3 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				B6801CBD1A742B06F2C64489 /* FileActions.swift */,
 				23841C75052DB5EEC0A1E6E0 /* String+FuzzyMatch.swift */,
 			);
 			path = Utils;
@@ -110,6 +115,7 @@
 				87ECA46672D3E90AC9C0E84A /* DataTableView.swift */,
 				2DF4F9DCA4C529556D3834AB /* FilterView.swift */,
 				3480C2F4B3CF52810F1B8E45 /* FKPreviewPopover.swift */,
+				137F1506BEBD5BE34CAC2FC0 /* RootView.swift */,
 				C4B4B70323BD418C224679A4 /* StatusBar.swift */,
 			);
 			path = UI;
@@ -198,7 +204,9 @@
 				32B5289FFBACB56DCBAC0725 /* DataTableView.swift in Sources */,
 				8EB09946954F30E0BD3690BF /* DatabaseManager.swift in Sources */,
 				8DC57F816A593336762A4FD7 /* FKPreviewPopover.swift in Sources */,
+				372C3C48B3BBDEEB1E3C81B4 /* FileActions.swift in Sources */,
 				F7C2012A615D85362E9C41CF /* FilterView.swift in Sources */,
+				2F995394FE72943BCD69617D /* RootView.swift in Sources */,
 				712EBDEEA304014718B1E527 /* SQLQueryStore.swift in Sources */,
 				0E274EDA53B95C3B2455CC04 /* SQLiteoApp.swift in Sources */,
 				F63010F2026AFEE50D23BCDB /* StatusBar.swift in Sources */,

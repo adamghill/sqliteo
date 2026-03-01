@@ -40,6 +40,7 @@ class DatabaseManager {
     var totalRows: Int = 0
     var offset: Int = 0
     var limit: Int = 1000
+    var dataUpdateCounter: Int = 0
 
     struct FilterCriteria: Identifiable, Codable {
         var id = UUID()
@@ -85,6 +86,16 @@ class DatabaseManager {
     // Cached per-table metadata (not observed by views)
     @ObservationIgnored var tableHasRowid: Bool = true
     @ObservationIgnored private var columnCache: [String: [String]] = [:]
+
+    struct TableSchema {
+        let columns: [String]
+        let types: [String: String]
+        let primaryKeys: [String]
+        let hasRowid: Bool
+        let foreignKeys: [String: ForeignKeyReference]
+    }
+    @ObservationIgnored private var schemaCache: [String: TableSchema] = [:]
+    @ObservationIgnored var prefetchTask: Task<Void, Never>?
 
     // File Metadata
     var fileURL: URL?
@@ -143,6 +154,7 @@ class DatabaseManager {
         defer { self.isLoading = false }
         self.errorMessage = nil
         self.columnCache = [:]
+        self.schemaCache = [:]
 
         do {
             self.fileURL = url
@@ -158,6 +170,10 @@ class DatabaseManager {
 
             self.dbQueue = queue
             try await fetchTables()
+            self.prefetchTask?.cancel()
+            self.prefetchTask = Task.detached { [weak self] in
+                await self?.prefetchAllSchemas()
+            }
         } catch {
             self.errorMessage = "Error connecting to database: \(error.localizedDescription)"
         }
@@ -319,45 +335,86 @@ class DatabaseManager {
         self.tableDDL = ddl
     }
 
+    nonisolated private func extractSchema(db: GRDB.Database, tableName: String) throws
+        -> TableSchema
+    {
+        let columnsInfo = try db.columns(in: tableName)
+        let cols = columnsInfo.map { $0.name }
+        let types = Dictionary(uniqueKeysWithValues: columnsInfo.map { ($0.name, $0.type) })
+        let pks = columnsInfo.filter { $0.primaryKeyIndex > 0 }.map { $0.name }
+
+        var hasRowid = false
+        do {
+            _ = try db.makeStatement(
+                sql: "SELECT rowid FROM \"\(tableName)\" LIMIT 1")
+            hasRowid = true
+        } catch {}
+
+        var fks: [String: ForeignKeyReference] = [:]
+        do {
+            let rows = try Row.fetchAll(db, sql: "PRAGMA foreign_key_list(\"\(tableName)\")")
+            for row in rows {
+                if let table = row["table"] as? String,
+                    let from = row["from"] as? String,
+                    let to = row["to"] as? String
+                {
+                    fks[from] = ForeignKeyReference(
+                        column: from, destinationTable: table, destinationColumn: to)
+                }
+            }
+        } catch {}
+
+        return TableSchema(
+            columns: cols, types: types, primaryKeys: pks, hasRowid: hasRowid, foreignKeys: fks)
+    }
+
     private func fetchSchema(for tableName: String) async throws {
         guard let dbQueue = dbQueue else { return }
 
-        let (cols, types, pks, hasRowid, fks) = try await dbQueue.read {
-            db -> ([String], [String: String], [String], Bool, [String: ForeignKeyReference]) in
-            let columnsInfo = try db.columns(in: tableName)
-            let cols = columnsInfo.map { $0.name }
-            let types = Dictionary(uniqueKeysWithValues: columnsInfo.map { ($0.name, $0.type) })
-            let pks = columnsInfo.filter { $0.primaryKeyIndex > 0 }.map { $0.name }
+        let schema: TableSchema
+        if let cached = schemaCache[tableName] {
+            schema = cached
+        } else {
+            schema = try await dbQueue.read { db in
+                try self.extractSchema(db: db, tableName: tableName)
+            }
+            schemaCache[tableName] = schema
+            columnCache[tableName] = schema.columns
+        }
 
-            var hasRowid = false
-            do {
-                _ = try db.makeStatement(
-                    sql: "SELECT rowid FROM \"\(tableName)\" LIMIT 1")
-                hasRowid = true
-            } catch {}
+        self.columns = schema.columns
+        self.columnTypes = schema.types
+        self.primaryKeyColumns = schema.primaryKeys
+        self.tableHasRowid = schema.hasRowid
+        self.foreignKeys = schema.foreignKeys
+    }
 
-            var fks: [String: ForeignKeyReference] = [:]
-            do {
-                let rows = try Row.fetchAll(db, sql: "PRAGMA foreign_key_list(\"\(tableName)\")")
-                for row in rows {
-                    if let table = row["table"] as? String,
-                        let from = row["from"] as? String,
-                        let to = row["to"] as? String
-                    {
-                        fks[from] = ForeignKeyReference(
-                            column: from, destinationTable: table, destinationColumn: to)
+    func prefetchAllSchemas() async {
+        guard let dbQueue = dbQueue else { return }
+
+        let tables = tableNames
+
+        do {
+            let schemas = try await dbQueue.read { db in
+                var results = [String: TableSchema]()
+                for table in tables {
+                    do {
+                        let schema = try self.extractSchema(db: db, tableName: table)
+                        results[table] = schema
+                    } catch {
+                        print("Error prefetching schema for \(table): \(error)")
                     }
                 }
-            } catch {}
+                return results
+            }
 
-            return (cols, types, pks, hasRowid, fks)
+            for (table, schema) in schemas {
+                self.schemaCache[table] = schema
+                self.columnCache[table] = schema.columns
+            }
+        } catch {
+            print("Error in prefetch: \(error)")
         }
-        self.columns = cols
-        self.columnTypes = types
-        self.primaryKeyColumns = pks
-        self.tableHasRowid = hasRowid
-        self.foreignKeys = fks
-        self.columnCache[tableName] = cols
     }
 
     func columns(for tables: [String]) async -> [String] {
@@ -477,6 +534,7 @@ class DatabaseManager {
 
         self.totalRows = total
         self.rows = fetchedRows
+        self.dataUpdateCounter += 1
     }
 
     func nextPage() async {
@@ -568,6 +626,7 @@ class DatabaseManager {
             self.rows = newRows
             self.totalRows = total
             self.primaryKeyColumns = []
+            self.dataUpdateCounter += 1
         } catch {
             self.errorMessage = "Error executing SQL: \(error.localizedDescription)"
         }
@@ -661,31 +720,6 @@ class DatabaseManager {
         }
     }
 
-    func openFile() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [
-            UTType("org.sqlite.sqlite"),
-            UTType.database,
-            UTType.data,
-        ].compactMap { $0 }
-
-        panel.allowedContentTypes += [
-            UTType(filenameExtension: "sqlite"),
-            UTType(filenameExtension: "db"),
-            UTType(filenameExtension: "sqlite3"),
-        ].compactMap { $0 }
-
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                Task {
-                    await self.connect(to: url)
-                }
-            }
-        }
-    }
-
     func fetchSurroundingRows(for fk: ForeignKeyReference, value: String) async throws -> [DBRow] {
         guard let dbQueue = dbQueue else { return [] }
 
@@ -739,4 +773,66 @@ class DatabaseManager {
             return results
         }
     }
+
+    func refreshDatabase() async {
+        guard dbQueue != nil else { return }
+        
+        // 1. Clear Caches
+        self.columnCache.removeAll()
+        self.schemaCache.removeAll()
+        
+        // 2. Refresh physical file stats if possible
+        if let url = self.fileURL, let attr = try? FileManager.default.attributesOfItem(atPath: url.path) {
+            self.fileSize = attr[.size] as? Int64 ?? 0
+            self.modificationDate = attr[.modificationDate] as? Date
+        }
+        
+        // 3. Keep track of current state
+        let currentTable = self.selectedTableName
+        let currentCustomSQL = self.customSQL
+        let currentFilters = self.filters
+        // We do *not* clear active/pending edits because maybe the user wants to save them
+        
+        // 4. Re-fetch list of tables
+        do {
+            // Re-instanciate dbQueue to ensure any file-level changes are picked up and internal statement caches are flushed
+            if let path = self.fileURL?.path {
+                self.dbQueue = try DatabaseQueue(path: path)
+            }
+            try await fetchTables()
+        } catch {
+            self.errorMessage = "Failed to refresh table list: \(error.localizedDescription)"
+        }
+        
+        // 5. Trigger new background schema pre-fetch
+        self.prefetchTask?.cancel()
+        self.prefetchTask = Task.detached { [weak self] in
+            await self?.prefetchAllSchemas()
+        }
+        
+        // 6. Restore View State
+        if let table = currentTable {
+            // Check if the table still exists
+            if self.tableNames.contains(table) {
+                // Re-select it to refresh columns and data
+                // We preserve filters manually since `selectTable` overwrites them if passed nil
+                if currentFilters.isEmpty {
+                    await self.selectTable(table)
+                } else {
+                    // For multiple filters, we'd need a different signature, but sqliteo only supports one currently
+                    await self.selectTable(table, filter: currentFilters.first)
+                }
+            } else {
+                // Table was dropped externally
+                self.clearDataForSQLConsole()
+            }
+        } else if let sql = currentCustomSQL {
+            // Re-run the custom query
+            await self.executeCustomSQL(sql, resetOffset: false)
+        }
+        
+        // Force UI update
+        self.dataUpdateCounter += 1
+    }
 }
+
