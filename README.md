@@ -47,7 +47,7 @@ SQLiteo is a native macOS SQLite browser built with Swift and absolute precision
 >
 > *Alternatively, run this in Terminal:*
 > ```bash
-> xattr -d com.apple.quarantine /Applications/SQLiteo.app
+> xattr -cr /Applications/SQLiteo.app
 > ```
 
 ## 🤝 Contributing
