@@ -780,3 +780,10 @@ struct ContentView: View {
         return String(sql[result])
     }
 }
+
+#Preview {
+    ContentView()
+        .environment(DatabaseManager())
+        .environment(SQLQueryStore())
+}
+

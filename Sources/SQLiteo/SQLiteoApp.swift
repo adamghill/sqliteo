@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 @MainActor
 struct SQLiteoApp: App {
     @Environment(\.openWindow) private var openWindow
+    @FocusedValue(\.databaseManager) var dbManager
 
     init() {
     }
@@ -22,55 +23,12 @@ struct SQLiteoApp: App {
                 .keyboardShortcut("n", modifiers: [.command, .shift])
 
                 Button("New Database...") {
-                    let panel = NSSavePanel()
-                    panel.allowedContentTypes = [
-                        UTType("org.sqlite.sqlite"),
-                        UTType.database,
-                        UTType.data,
-                    ].compactMap { $0 }
-
-                    panel.allowedContentTypes += [
-                        UTType(filenameExtension: "sqlite"),
-                        UTType(filenameExtension: "db"),
-                        UTType(filenameExtension: "sqlite3"),
-                    ].compactMap { $0 }
-
-                    panel.nameFieldStringValue = "NewDatabase.sqlite"
-
-                    panel.begin { response in
-                        if response == .OK, let url = panel.url {
-                            Task {
-                                if !FileManager.default.fileExists(atPath: url.path) {
-                                    FileManager.default.createFile(atPath: url.path, contents: nil, attributes: nil)
-                                }
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    }
+                    FileActions.createNewFile(dbManager: dbManager)
                 }
                 .keyboardShortcut("n", modifiers: .command)
 
                 Button("Open SQLite File...") {
-                    let panel = NSOpenPanel()
-                    panel.allowsMultipleSelection = false
-                    panel.canChooseDirectories = false
-                    panel.allowedContentTypes = [
-                        UTType("org.sqlite.sqlite"),
-                        UTType.database,
-                        UTType.data,
-                    ].compactMap { $0 }
-
-                    panel.allowedContentTypes += [
-                        UTType(filenameExtension: "sqlite"),
-                        UTType(filenameExtension: "db"),
-                        UTType(filenameExtension: "sqlite3"),
-                    ].compactMap { $0 }
-
-                    panel.begin { response in
-                        if response == .OK, let url = panel.url {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
+                    FileActions.openFile(dbManager: dbManager)
                 }
                 .keyboardShortcut("o", modifiers: .command)
             }
