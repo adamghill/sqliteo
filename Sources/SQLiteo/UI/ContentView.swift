@@ -348,21 +348,48 @@ struct ContentView: View {
                             }
                         }
 
-                        HStack {
-                            Button {
-                                let text = textToExecute(for: query)
-                                Task {
-                                    await dbManager.executeCustomSQL(text)
+                        VStack(spacing: 0) {
+                            // QUERY EDITOR
+                            HStack {
+                                Button {
+                                    let text = textToExecute(for: query)
+                                    Task {
+                                        await dbManager.executeCustomSQL(text)
+                                    }
+                                } label: {
+                                    Label("Run Query", systemImage: "play.fill")
                                 }
-                            } label: {
-                                Label("Run Query", systemImage: "play.fill")
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.return, modifiers: .command)
+                                .buttonStyle(.borderedProminent)
+                                .keyboardShortcut(.return, modifiers: .command)
 
-                            Spacer()
+                                Spacer()
+                            }
+                            .padding(8)
+                            
+                            // IN THE CASE OF ERROR MESSAGE, DISPLAY THE TEXT UNDER THE QUERY
+                            if let errorMessage = dbManager.errorMessage {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                    Text(errorMessage)
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Button {
+                                        dbManager.errorMessage = nil
+                                    } label: {
+                                        Image(systemName: "xmark")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.red.opacity(0.08))
+                            }
                         }
-                        .padding(8)
                         .background(Color(NSColor.windowBackgroundColor))
 
                         Rectangle()
